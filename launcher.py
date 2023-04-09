@@ -2,28 +2,16 @@ import asyncio
 import discord
 from discord.ext import commands
 import configparser
-
-
-class TestCog(commands.Cog):
-    def __init__(self, bot):
-        self.state = 0
-        self.bot = bot
-    
-    @commands.command(name='ping')
-    async def ping(self, ctx, *args):
-        self.state += 1
-        await ctx.send(f'Pong! {self.state}')
-
-
-async def register_cogs(bot):
-    await bot.add_cog(TestCog(bot))
-
+import assassin_cog
+import logging
 
 def launch(config: configparser.ConfigParser):
+    logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
+
     intents = discord.Intents.default()
     intents.message_content = True
 
     bot = commands.Bot(command_prefix="$", intents=intents, case_insensitive=True)
-    asyncio.run(register_cogs(bot))
-    
-    bot.run(config['DEFAULT']['ApiKey'])
+    asyncio.run(assassin_cog.register(bot, config['DEFAULT']['SavePath']))
+
+    bot.run(config['DEFAULT']['ApiKey'], log_handler=None)
