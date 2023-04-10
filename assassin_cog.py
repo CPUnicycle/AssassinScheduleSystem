@@ -210,15 +210,15 @@ class AssassinCog(commands.Cog):
             return
         
         if args[0] == 'scare':
-+            channel = self.bot.get_channel(self._config.channel)
-+            await channel.send('Hello, I am a bot')
-+            return
-+
-+        if args[0] == 'randomize_day':
-+            self.gamestate.assassin_day = random.choice([1, 2, 3, 4, 5])
-+            await ctx.send('Random day has been set.')
-+            logging.info(f'Random day has been manually randomized to: {self.gamestate.assassin_day}')
-+            return
+            channel = self.bot.get_channel(self._config.channel)
+            await channel.send('Hello, I am a bot')
+            return
+
+        if args[0] == 'randomize_day':
+            self.gamestate.assassin_day = random.choice([1, 2, 3, 4, 5])
+            await ctx.send('Random day has been set.')
+            logging.info(f'Random day has been manually randomized to: {self.gamestate.assassin_day}')
+            return
         
         await ctx.send(f'Unrecognized debug command: {args[1]}')
 
