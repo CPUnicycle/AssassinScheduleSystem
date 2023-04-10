@@ -108,14 +108,29 @@ class AssassinCog(commands.Cog):
         if name1.lower() == name2.lower():
             await ctx.send('Hey! No free points!')
             return
+        
+        pts1 = self.gamestate.players[name1].points
+        pts2 = self.gamestate.players[name2].points
+        
 
-        point_calc = 1 + (self.gamestate.players[name2].points -
-                          self.gamestate.players[name1].points) * 0.5
-        self.gamestate.players[name1].points += max(point_calc, 1)
+        # hitting someone with more points (or equal to) than you gives you 1 + half the difference
+        # hitting someone with less points than you gives you the ratio of your points divided by their points
+        if pts1 <= pts2:
+            point_calc = 1 + (pts2 - pts1) * 0.5
+        else:
+            point_calc = max(pts2/pts1, 0.2)
+        
+        self.gamestate.players[name1].points += point_calc
 
-        # when you get hit by someone you lose one point
+        # when you get hit by someone lower than you, you lose one point
+        # when you get hit by someone higher than you, you lose the ratio of your points divided by their points, or .2
+        if pts1 <= pts2:
+            pts_lost = 1
+        else:
+            pts_lost = max(pts2/pts1, .2)
+
         self.gamestate.players[name2].points = max(
-            0, self.gamestate.players[name2].points - 1)
+            0, self.gamestate.players[name2].points - pts_lost)
 
         await ctx.send(self.get_leaderboard())
     
