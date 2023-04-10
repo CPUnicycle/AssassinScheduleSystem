@@ -86,12 +86,12 @@ class AssassinCog(commands.Cog):
     
 
     @commands.command(name='remove')
-    async def remove(ctx, name):
+    async def remove(self, ctx, name):
         if name not in self.gamestate.players:
             await ctx.send(f'{name} doesn\'t seem to be participating so they couldn\'t be removed.')
 
         else:
-            self.gamestate.pop(name)
+            self.gamestate.players.pop(name)
             await ctx.send(f'Removed {name} from the leaderboard.')
 
 
@@ -209,10 +209,21 @@ class AssassinCog(commands.Cog):
             await ctx.send(START_MESSAGE)
             return
         
+        if args[0] == 'scare':
++            channel = self.bot.get_channel(self._config.channel)
++            await channel.send('Hello, I am a bot')
++            return
++
++        if args[0] == 'randomize_day':
++            self.gamestate.assassin_day = random.choice([1, 2, 3, 4, 5])
++            await ctx.send('Random day has been set.')
++            logging.info(f'Random day has been manually randomized to: {self.gamestate.assassin_day}')
++            return
+        
         await ctx.send(f'Unrecognized debug command: {args[1]}')
 
      
-    @tasks.loop(time=datetime.time(15, 19, tzinfo=TIMEZONE))
+    @tasks.loop(time=datetime.time(0, 0, tzinfo=TIMEZONE))
     async def midnight_update(self):
         channel = self.bot.get_channel(self._config.channel)
 
