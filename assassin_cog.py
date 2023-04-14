@@ -211,7 +211,7 @@ class AssassinCog(commands.Cog):
         
         if args[0] == 'scare':
             channel = self.bot.get_channel(self._config.channel)
-            await channel.send('Prepare yourself! Jk lmao')
+            await channel.send('<@&1091978707406704682> Prepare yourself! Jk lmao')
             return
 
         if args[0] == 'randomize_day':
