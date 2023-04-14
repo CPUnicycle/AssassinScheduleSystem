@@ -220,7 +220,7 @@ class AssassinCog(commands.Cog):
             logging.info(f'Random day has been manually randomized to: {self.gamestate.assassin_day}')
             return
         
-        await ctx.send(f'Unrecognized debug command: {args[1]}')
+        await ctx.send(f'Unrecognized debug command: {args[0]}')
 
      
     @tasks.loop(time=datetime.time(0, 0, tzinfo=TIMEZONE))
