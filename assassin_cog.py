@@ -37,6 +37,12 @@ class AssassinCog(commands.Cog):
     
 
     @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        print(message.content)
+        if message.content == "🖕":
+            await message.channel.send("Hey! That wasn't very nice!")
+
+    @commands.Cog.listener()
     async def on_ready(self):
         self.midnight_update.start()
         self.morning_update.start()
