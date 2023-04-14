@@ -38,7 +38,7 @@ class AssassinCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.content == "🖕":
+        if "🖕" in message.content:
             await message.channel.send("Hey! That wasn't very nice!")
 
     @commands.Cog.listener()
