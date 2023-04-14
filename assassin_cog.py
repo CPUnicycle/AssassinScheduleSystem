@@ -264,7 +264,10 @@ class AssassinCog(commands.Cog):
             time_probability = 0.50 * ((pow(np.e, -0.5 * pow(
             ((x - 14) / 5.6), 2))) / (5.6 * np.sqrt(2 * np.pi)))
             rand_value = random.random()
+
+            logging.info(f'Rolling for assassin half hour: Needed->{time_probability} Got->{rand_value}')
             if (rand_value < time_probability):
+                logging.info('Starting assassin hald hour.')
                 await channel.send("<@&1091978707406704682> Prepare yourself! They are coming to get you for the next half-hour.")
 
 
