@@ -114,23 +114,21 @@ class AssassinCog(commands.Cog):
         
 
         # hitting someone with more points (or equal to) than you gives you 1 + half the difference
-        # hitting someone with less points than you gives you the ratio of your points divided by their points
+        # hitting someone with less points than you gives you one point, unless they have 0 points, then you only get 0.2 points
         if pts1 <= pts2:
             point_calc = 1 + (pts2 - pts1) * 0.5
         else:
-            point_calc = max(pts2/pts1, 0.2)
+            if pts2 == 0:
+                point_calc = 0.2
+            else:
+                point_calc = 1
         
         self.gamestate.players[name1].points += point_calc
 
         # when you get hit by someone lower than you, you lose one point
-        # when you get hit by someone higher than you, you lose the ratio of your points divided by their points, or .2
-        if pts1 <= pts2:
-            pts_lost = 1
-        else:
-            pts_lost = max(pts2/pts1, .2)
-
+        # when you get hit by someone higher than you, you lose one point
         self.gamestate.players[name2].points = max(
-            0, self.gamestate.players[name2].points - pts_lost)
+            0, self.gamestate.players[name2].points - 1)
 
         await ctx.send(self.get_leaderboard())
     
@@ -182,7 +180,12 @@ class AssassinCog(commands.Cog):
         
         # Set points to a non-negative integer.
         if args[0] == 'set_points':
-            if len(args) < 3 or not args[2].isdigit():
+            try:
+                num_pts = float(args[2])
+            except:
+                num_pts = args[2]
+                await ctx.send(f"{args[2]} should be a numeric points value")
+            if len(args) < 3 or not (type(num_pts) is float):
                 await ctx.send('Usage: `$debug set_points <player> <points>`')
                 return
             
@@ -191,8 +194,8 @@ class AssassinCog(commands.Cog):
                 await ctx.send(f'Player \'{name}\' not found.')
                 return
             
-            self.gamestate.players[name].points = int(args[2])
-            await ctx.send(f'Set points to be {args[2]} for \'{name}\'')
+            self.gamestate.players[name].points = num_pts
+            await ctx.send(f'Set points to be {num_pts} for \'{name}\'')
             return
         
         # Goofy secret funny code. (ples dont remove, aj) <- OK <- Thank you
