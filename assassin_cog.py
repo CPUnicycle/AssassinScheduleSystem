@@ -37,6 +37,11 @@ class AssassinCog(commands.Cog):
     
 
     @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if "🖕" in message.content:
+            await message.channel.send("Hey! That wasn't very nice!")
+
+    @commands.Cog.listener()
     async def on_ready(self):
         self.midnight_update.start()
         self.morning_update.start()
@@ -86,12 +91,12 @@ class AssassinCog(commands.Cog):
     
 
     @commands.command(name='remove')
-    async def remove(ctx, name):
+    async def remove(self, ctx, name):
         if name not in self.gamestate.players:
             await ctx.send(f'{name} doesn\'t seem to be participating so they couldn\'t be removed.')
 
         else:
-            self.gamestate.pop(name)
+            self.gamestate.players.pop(name)
             await ctx.send(f'Removed {name} from the leaderboard.')
 
 
@@ -212,10 +217,21 @@ class AssassinCog(commands.Cog):
             await ctx.send(START_MESSAGE)
             return
         
-        await ctx.send(f'Unrecognized debug command: {args[1]}')
+        if args[0] == 'scare':
+            channel = self.bot.get_channel(self._config.channel)
+            await channel.send('<@&1091978707406704682> Prepare yourself! Jk lmao')
+            return
+
+        if args[0] == 'randomize_day':
+            self.gamestate.assassin_day = random.choice([1, 2, 3, 4, 5])
+            await ctx.send('Random day has been set.')
+            logging.info(f'Random day has been manually randomized to: {self.gamestate.assassin_day}')
+            return
+        
+        await ctx.send(f'Unrecognized debug command: {args[0]}')
 
      
-    @tasks.loop(time=datetime.time(15, 19, tzinfo=TIMEZONE))
+    @tasks.loop(time=datetime.time(0, 0, tzinfo=TIMEZONE))
     async def midnight_update(self):
         channel = self.bot.get_channel(self._config.channel)
 
@@ -256,7 +272,10 @@ class AssassinCog(commands.Cog):
             time_probability = 0.50 * ((pow(np.e, -0.5 * pow(
             ((x - 14) / 5.6), 2))) / (5.6 * np.sqrt(2 * np.pi)))
             rand_value = random.random()
+
+            logging.info(f'Rolling for assassin half hour: Needed->{time_probability} Got->{rand_value}')
             if (rand_value < time_probability):
+                logging.info('Starting assassin hald hour.')
                 await channel.send("<@&1091978707406704682> Prepare yourself! They are coming to get you for the next half-hour.")
 
 

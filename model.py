@@ -20,7 +20,7 @@ class CaseInsensitiveDict(collections.Mapping):
         return self._d[k.lower()]
     
     def __setitem__(self, k, v):
-        self._d[k] = v
+        self._d[k.lower()] = v
 
     def pop(self, k):
         self._d.pop(k.lower())
