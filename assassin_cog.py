@@ -203,7 +203,7 @@ class AssassinCog(commands.Cog):
             await ctx.send(f'Set points to be {num_pts} for \'{name}\'')
             return
         
-        # Goofy secret funny code. (ples dont remove, aj) <- OK <- Thank you
+        # Goofy secret funny code. (ples dont remove, aj) <- OK <- Thank you <- You're welcome
         if args[0] == 'lenny':
             await ctx.send('( ͡° ͜ʖ ͡°)')
             return
