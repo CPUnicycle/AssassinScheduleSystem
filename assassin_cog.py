@@ -300,6 +300,7 @@ class AssassinCog(commands.Cog):
                     logging.info(f'Targeting player \'{max_player.name}\'')
                     await channel.send(f"<@&1091978707406704682> Hey {max_player.name.capitalize()}, that's a lot of points you've got there. Would sure be a shame if...")
                     await asyncio.sleep(5)
+                    await channel.send("<@&1091978707406704682> Prepare yourself! They are coming to get you for the next half-hour. Also,")
                     await channel.send(f'**Double points for tagging {max_player.name.capitalize()}!**')
                     self.gamestate.challenger = max_player.name.lower()
                     return
