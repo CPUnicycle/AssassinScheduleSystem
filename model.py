@@ -44,9 +44,12 @@ class AssassinConfig:
     save_path: str
     debug_allow: set[int]
     channel: int
+    operator: str = ''
 
 
 @dataclass
 class GameState:
     players: CaseInsensitiveDict[str, Player]
     assassin_day: int
+    challenge: bool = False
+    challenger: str = None

@@ -16,7 +16,8 @@ def launch(config: configparser.ConfigParser):
     game_config = model.AssassinConfig(
         config['DEFAULT']['SavePath'], 
         set(map(int, config['DEFAULT']['DebugAllow'].split(','))),
-        int(config['DEFAULT']['AssassinChannel'])
+        int(config['DEFAULT']['AssassinChannel']),
+        int(config['DEFAULT']['Operator'])
     )
 
     bot = commands.Bot(command_prefix="$", intents=intents, case_insensitive=True)

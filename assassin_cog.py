@@ -3,6 +3,7 @@ import logging
 import os.path
 import pickle
 import random
+import asyncio
 from typing import Optional
 
 import discord
@@ -127,7 +128,11 @@ class AssassinCog(commands.Cog):
                 point_calc = 0.2
             else:
                 point_calc = 1
-        
+
+
+        if self.gamestate.challenger == name2.lower():
+            point_calc *= 2
+
         self.gamestate.players[name1].points += point_calc
 
         # when you get hit by someone lower than you, you lose one point
@@ -165,7 +170,7 @@ class AssassinCog(commands.Cog):
             return
         
         if args[0] == 'info':
-            await ctx.send(f'Players: {repr(self.gamestate.players)}\nRandom day: [REDACTED]')
+            await ctx.send(f'Players: {repr(self.gamestate.players)}\nRandom day: [REDACTED]\nChallenge? : {self.gamestate.challenge}\nChallenger: {self.gamestate.challenger}')
             return
         
         # Add a non-negative integer of points.
@@ -219,7 +224,20 @@ class AssassinCog(commands.Cog):
         
         if args[0] == 'scare':
             channel = self.bot.get_channel(self._config.channel)
-            await channel.send('<@&1091978707406704682> Prepare yourself! Jk lmao')
+            await channel.send('<@&1091978707406704682> :)')
+            return
+        
+        if args[0] == 'challenge' and ctx.message.author.id == self._config.operator:
+            if self.gamestate.challenge:
+                await ctx.send('A challenger backs down...')
+                self.gamestate.challenge = False
+            else:
+                await ctx.send('A challenger approaches...')
+                self.gamestate.challenge = True
+            return
+        
+        if args[0] == 'override' and ctx.message.author.id == self._config.operator:
+            await self.half_hourly_update(do_round=True)
             return
 
         if args[0] == 'randomize_day':
@@ -257,11 +275,12 @@ class AssassinCog(commands.Cog):
 
 
     @tasks.loop(time=[datetime.time(n // 2, 30 * (n % 2), tzinfo=TIMEZONE) for n in range(48)])
-    async def half_hourly_update(self):
+    async def half_hourly_update(self, do_round=False):
         channel = self.bot.get_channel(self._config.channel)
         current_time = datetime.datetime.now(TIMEZONE)
 
         self.write_state()
+        self.gamestate.challenger = None
 
         if (current_time.hour in range(7, 21)) and \
             (current_time.isoweekday() in range(1, 6)) and \
@@ -274,8 +293,20 @@ class AssassinCog(commands.Cog):
             rand_value = random.random()
 
             logging.info(f'Rolling for assassin half hour: Needed->{time_probability} Got->{rand_value}')
-            if (rand_value < time_probability):
-                logging.info('Starting assassin hald hour.')
+            if (rand_value < time_probability or do_round):
+                max_player = max(self.gamestate.players.values(), key=lambda player: player.points)
+
+                if (self.gamestate.challenge and not max_player.paused):
+                    logging.info(f'Targeting player \'{max_player.name}\'')
+                    await channel.send(f"<@&1091978707406704682> Hey {max_player.name.capitalize()}, that's a lot of points you've got there. Would sure be a shame if...")
+                    await asyncio.sleep(5)
+                    await channel.send(f'**Double points for tagging {max_player.name.capitalize()}!**')
+                    self.gamestate.challenger = max_player.name.lower()
+                    return
+
+                self.gamestate.challenge = False
+
+                logging.info('Starting assassin half hour.')
                 await channel.send("<@&1091978707406704682> Prepare yourself! They are coming to get you for the next half-hour.")
 
 
