@@ -175,7 +175,13 @@ class AssassinCog(commands.Cog):
         
         # Add a non-negative integer of points.
         if args[0] == 'add_points':
-            if len(args) < 3 or not args[2].isdigit():
+            try:
+                num_pts = float(args[2])
+            except:
+                num_pts = args[2]
+                await ctx.send(f"{args[2]} should be a numeric points value")
+            
+            if len(args) < 3 or not (type(num_pts) is float):
                 await ctx.send('Usage: `$debug add_points <player> <points>`')
                 return
             
@@ -184,8 +190,8 @@ class AssassinCog(commands.Cog):
                 await ctx.send(f'Player \'{name}\' not found.')
                 return
             
-            self.gamestate.players[name].points += int(args[2])
-            await ctx.send(f'Added {args[2]} points to \'{name}\'')
+            self.gamestate.players[name].points += num_pts
+            await ctx.send(f'Added {num_pts} points to \'{name}\'')
             return
         
         # Set points to a non-negative integer.
