@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-import collections
+from collections.abc import Mapping 
 from typing import Any
 
-
-class CaseInsensitiveDict(collections.Mapping):
+class CaseInsensitiveDict(Mapping):
     def __init__(self, d: dict[str, Any]):
         self._d = {k.lower(): v for k, v in d.items()}
 
@@ -35,8 +34,31 @@ class CaseInsensitiveDict(collections.Mapping):
 @dataclass
 class Player:
     name: str
+    discID: int
     points: int = 1
+    week_points: int = 0
     paused: bool = False
+    blueshelled: bool = False
+    stat_list = []
+    # and have a way to track stats
+    # Maybe a list with data on every tag that occurs
+    #   blueshell means was the blueshell active on the player who was tagged
+    # [
+    #   [tag/tagged, who, points_exchanged, date/time, verb, blueshell],
+    #   [tag/tagged ... ],
+    #   []
+    # ]
+    #   Number Tags/Tagged (and KDR)
+    #   Avg pts/tag
+    #   Favorite Victim
+    #   Most common antagonist
+    #   Blue Shells for/against
+    # Stats for whole game
+    #   Highest value tag
+    #   Bloodiest day
+    #   Most tags in a day
+    #   Blueshelled the most
+    #   Used the most blueshells
 
 
 @dataclass
@@ -45,11 +67,30 @@ class AssassinConfig:
     debug_allow: set[int]
     channel: int
     operator: str = ''
+    bluerole: int = 0
+    playerrole: int = 0
+    pauserole: int = 0
 
 
 @dataclass
 class GameState:
     players: CaseInsensitiveDict[str, Player]
     assassin_day: int
-    challenge: bool = False
-    challenger: str = None
+    day_game_active: bool = False
+    thirty_game_active: bool = False
+    tag_clock: int = 0
+    thirty_game_clock: int = 0
+    game_over: bool = False
+    score_msg: int = 0
+
+
+@dataclass
+class Statistic:
+    tagger: bool = False
+    person: str = ''
+    verb: str = ''
+    blueshelled: bool = False
+    on_blueshell: bool = False
+    date: str = ''
+
+
