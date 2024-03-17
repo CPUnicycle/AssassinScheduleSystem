@@ -82,6 +82,7 @@ class GameState:
     thirty_game_clock: int = 0
     game_over: bool = False
     score_msg: int = 0
+    game_activated: bool = False
 
 
 @dataclass
