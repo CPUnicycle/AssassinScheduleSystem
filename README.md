@@ -8,7 +8,7 @@ A discord bot for the annual Uni Assassin game played by friends who coincidenta
 - $points <@tagger> <verb> <@tagee> <Optional preposition> <Optional @colab1> <Optional @colab2> ... <@colabN> - Tell the bot that you tagged someone for points. If you had help from an alliance, give them some credit so they can earn some points too!
 - $scores - Print out the scoreboard as a message. This still works, but really just check the pinned scoreboard message instead.
 - $help - Print out a list of commands you can use with the bot.
-- $stats - Get the statistics for a given player. Not currently functional.
+- $stats - Get the statistics for a given player.
 
 ### Definitions:
 1. *Blueshelled* - Players who can be tagged even while mounted on a unicycle (as long as the game is active). This is always the player in first, plus some others sometimes.
