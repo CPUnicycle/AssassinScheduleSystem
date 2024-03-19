@@ -17,6 +17,7 @@ def launch(config: configparser.ConfigParser):
         save_path = config['DEFAULT']['SavePath'],
         debug_allow = set(map(int, config['DEFAULT']['DebugAllow'].split(','))),
         channel = int(config['DEFAULT']['AssassinChannel']),
+        controlchan = int(config['DEFAULT']['ControlChannel']),
         operator = int(config['DEFAULT']['Operator']),
         bluerole = int(config['DEFAULT']['BlueShellID']),
         playerrole = int(config['DEFAULT']['PlayerID']),

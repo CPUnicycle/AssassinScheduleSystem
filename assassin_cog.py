@@ -8,15 +8,14 @@ import model
 import typing
 import numpy as np
 import discord
+import re
 from discord.ext import commands, tasks
+import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
 
 #TODO:
-#   - Check each command for errors - DONE
-#   - Test game 'safety' for going off before game starts - DONE
-#   - Pi network issues
 #   - Push to github
-#   - Public recon channels - DONE
-#   - Clear message history
 
 # AssBot 2.0
 #   Store all players as an object that can be tied to a discord ID - Done
@@ -29,14 +28,10 @@ from discord.ext import commands, tasks
 
 # Updates:
 #   Features:
-#       Stats
 #       Undo/Redo in $debug
 #       Randomized messages
 #       Website - scoreboard, rules, interaction simulator, statistics, source code
 #       Instagram
-#   Cleanup:
-#       gamestate.game_over and gamestate.game_activated are redundant
-#       start_message should be one variable
 
 # Launch List:
 #   Change messages back to the ominous/sassy ones - Done
@@ -84,6 +79,7 @@ class AssassinCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
         channel = self.bot.get_channel(self._config.channel)
+        control_channel = self.bot.get_channel(self._config.controlchan)
         player_role = before.guild.get_role(self._config.playerrole)
         blue_role = before.guild.get_role(self._config.bluerole)
         pause_role = before.guild.get_role(self._config.pauserole)
@@ -131,7 +127,7 @@ class AssassinCog(commands.Cog):
                 await channel.send(f'<@{after.id}> tried to unpause themself early! You\'re a lazy cheater.>')
         else:
             pass
-        scores = await channel.fetch_message(self.gamestate.score_msg)
+        scores = await control_channel.fetch_message(self.gamestate.score_msg)
         await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
 
     @commands.command(name='points')
@@ -145,8 +141,20 @@ class AssassinCog(commands.Cog):
 
         first_i = self.get_first_places()
         channel = self.bot.get_channel(self._config.channel)
+        control_channel = self.bot.get_channel(self._config.controlchan)
         blue_role = ctx.guild.get_role(self._config.bluerole)
-
+        if verb.__contains__('Statistic') or \
+                verb.__contains__('tagger=') or \
+                verb.__contains__('person=') or \
+                verb.__contains__('verb=') or \
+                verb.__contains__('point_i=') or \
+                verb.__contains__('point_f=') or \
+                verb.__contains__('blueshelled=') or \
+                verb.__contains__('on_blueshell=') or \
+                verb.__contains__('date=datetime.datetime'):
+            await ctx.send('Nope. Can\'t use that word here. Re-enter points.')
+            await ctx.send('Forgive me python gods for I have sinned.\n-AJ')
+            return
         if name1 not in self.gamestate.players or self.gamestate.players[name1].paused:
             await ctx.send(f'{tag1} isn\'t playing at the moment. Shouldn\'t that be you? How did that happen?')
             return
@@ -161,7 +169,8 @@ class AssassinCog(commands.Cog):
         for word in args:
             try:
                 tag = ''.join(filter(str.isdigit, word))
-                name = str(await self.bot.fetch_user(tag))
+                mem = await ctx.guild.fetch_member(tag)
+                name = mem.display_name
             except:
                 tag = 'nope'
                 name = 'not_player'
@@ -173,12 +182,13 @@ class AssassinCog(commands.Cog):
                     penalty += 1
                 else:
                     valid_tags.append(name)
-
+        report_addendum = ''
         for name in valid_tags:
             if self.gamestate.players[name2].points != 0:
                 self.gamestate.players[name].points += 1/(len(valid_tags)+1+penalty)
             else:
                 self.gamestate.players[name].points += 0.2
+            report_addendum += f"{name} now has {self.gamestate.players[name].points:.2f} points!\n"
 
         pts1 = self.gamestate.players[name1].points
         pts2 = self.gamestate.players[name2].points
@@ -200,31 +210,35 @@ class AssassinCog(commands.Cog):
             # Reset game clock to 0
             self.gamestate.tag_clock = 0
             # update player data
-            tagger_stat = model.Statistic(
+            self.gamestate.players[name1].stat_list += str(model.Statistic(
                 True,
                 name2,
                 verb,
+                pts1,
+                self.gamestate.players[name1].points,
                 self.gamestate.players[name1].blueshelled,
                 self.gamestate.players[name2].blueshelled,
                 datetime.datetime.now()
+                )
             )
-            taggee_stat = model.Statistic(
+            self.gamestate.players[name2].stat_list += str(model.Statistic(
                 False,
                 name1,
                 verb,
+                pts2,
+                self.gamestate.players[name2].points,
                 self.gamestate.players[name1].blueshelled,
                 self.gamestate.players[name2].blueshelled,
                 datetime.datetime.now()
+                )
             )
-            self.gamestate.players[name1].stat_list.append(tagger_stat)
-            self.gamestate.players[name2].stat_list.append(taggee_stat)
             
             # In the case of a lead change, fix blueshells
             # announce fixed blueshells
             first_f = self.get_first_places()
-            scores = await channel.fetch_message(self.gamestate.score_msg)
+            scores = await control_channel.fetch_message(self.gamestate.score_msg)
             await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
-            await channel.send(f'Points!\n{name1} now has {self.gamestate.players[name1].points:.2f} points!\n{name2} now has {self.gamestate.players[name2].points:.2f} points!')
+            await channel.send(f'Points!\n{name1} now has {self.gamestate.players[name1].points:.2f} points!\n{name2} now has {self.gamestate.players[name2].points:.2f} points!\n'+report_addendum)
             if first_i != first_f:
                 for name in first_f:
                     self.gamestate.players[name].blueshelled = True
@@ -252,17 +266,128 @@ class AssassinCog(commands.Cog):
 
 
     @commands.command(name='stats')
-    async def stats(self, ctx, tag):
-        # omg aj <- A reminder of how bad this ?used? to be
-        try:
+    async def stats(self, ctx, tag=None):
+        # omg aj <- A reminder of how bad this ~~used to be~~ is
+        if tag is None:
+            #most_lost = 0
+            loser_dic = {}
+            gainer_dic = {}
+            much_blueshell_dic = {}
+            many_tags_dic = {}
+            blueshell_hunter_dic = {}
+            for player in self.gamestate.players:
+                times = []
+                points = []
+                loser_dic.update({player: 0})
+                gainer_dic.update({player: 0})
+                much_blueshell_dic.update({player: 0})
+                many_tags_dic.update({player: 0})
+                blueshell_hunter_dic.update({player: 0})
+                for stat in self.read_stats(self.gamestate.players[player].stat_list):
+                    if stat.point_i - stat.point_f > loser_dic[player]:
+                        loser_dic[player] = stat.point_i - stat.point_f
+                    if stat.point_f - stat.point_i > gainer_dic[player]:
+                        gainer_dic[player] = stat.point_f - stat.point_i
+                    if stat.on_blueshell and not stat.tagger:
+                        much_blueshell_dic[player] += 1
+                    if stat.tagger:
+                        many_tags_dic[player] += 1
+                    if stat.tagger and stat.on_blueshell:
+                        blueshell_hunter_dic[player] += 1
+                        
+                        
+                    times.append(matplotlib.dates.date2num(stat.date))
+                    points.append(stat.point_f)
+                times.append(matplotlib.dates.date2num(datetime.datetime.now()))
+                points.append(self.gamestate.players[player].points)
+                times.insert(0, matplotlib.dates.date2num(GAME_START))
+                points.insert(0, 1)
+                plt.plot(times, points, label=player)
+            plt.xlabel('Days since start of game')
+            plt.ylabel('points')
+            plt.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+            plt.savefig('graph.png', bbox_inches='tight')
+            loser = max(loser_dic, key=loser_dic.get)
+            gainer = max(gainer_dic, key=gainer_dic.get)
+            lost_pts = loser_dic[loser]
+            gain_pts = gainer_dic[gainer]
+            much_blueshell = max(much_blueshell_dic, key=much_blueshell_dic.get)
+            many_tags = max(many_tags_dic, key=many_tags_dic.get)
+            blueshell_hunter = max(blueshell_hunter_dic, key=blueshell_hunter_dic.get)
+            stats_msg = f'The person who lost the most points in one go is {loser}, losing {lost_pts:.2f} points to {gainer}, who gained {gain_pts:.2f} points.\nThe person who got hit while blueshelled the most times is {much_blueshell} ({much_blueshell_dic[much_blueshell]} times).\nThe person who tagged the most people is {many_tags} ({many_tags_dic[many_tags]} tags).\nThe person who tagged the most blueshelled players is {blueshell_hunter} ({blueshell_hunter_dic[blueshell_hunter]} tags)'
+            await ctx.send(stats_msg, file=discord.File('graph.png'))
+        else:
             disc_id = ''.join(filter(str.isdigit, tag))
-            name = str(await self.bot.fetch_user(disc_id))
+            mem = await ctx.guild.fetch_member(disc_id)
+            name = mem.display_name
             if name in self.gamestate.players:
-                await ctx.send(f'Much statistics things')
+            # Want stats on:
+            #   - number tags
+            #   - times tagged
+            #   - biggest antagonist
+            #   - most common victim
+            #   - Jesse Stat
+            #   - KDR
+            #   - Graphs
+                num_tags = 0
+                num_tagged = 0
+                tagged_by = ''
+                tagged_most = ''
+                jesse_num = 0
+                on_blue_tags = 0
+                blueshell_count = 0
+                blue_tags = 0
+                bad_tags = 0
+                statlist = self.read_stats(self.gamestate.players[name].stat_list)
+                tags_dic = {}
+                tagged_by_dic = {}
+                time_tag = []
+                for stat in statlist:
+                    time_tag.append(stat.date.hour)
+                    if stat.tagger:
+                        num_tags += 1
+                        jesse_num += (stat.point_f - stat.point_i)
+                        if stat.person in tags_dic:
+                            tags_dic[stat.person] += 1
+                        else:
+                            tags_dic.update({stat.person: 1})
+                        if stat.on_blueshell:
+                            on_blue_tags += 1
+                        if stat.blueshelled:
+                            blue_tags += 1
+                    else:
+                        num_tagged += 1
+                        if stat.person in tagged_by_dic:
+                            tagged_by_dic[stat.person] += 1
+                        else:
+                            tagged_by_dic.update({stat.person: 1})
+                        if stat.blueshelled:
+                            bad_tags += 1
+                        if stat.on_blueshell:
+                            blueshell_count += 1
+                # you know what? It works. Deal with it.
+                jesse_stat = jesse_num / (num_tags+.00001)
+                kdr = num_tags / (num_tagged+.00001)
+                try: 
+                    best_victim = max(tags_dic, key=tags_dic.get) 
+                except: 
+                    best_victim = 'Nobody, yet...'
+                try: 
+                    best_antagonist = max(tagged_by_dic, key=tagged_by_dic.get) 
+                except: 
+                    best_antagonist = 'Nobody, yet...'
+                stat_msg = f'Tagged by {best_antagonist} the most\nMost common victim: {best_victim}\nTagged others: {num_tags} times\nGot tagged: {num_tagged} times\nJesse Stat: {jesse_stat:.2f} (avg pts/tag)\nTagged a bluesheller: {on_blue_tags} times\nGot blueshelled: {blueshell_count} times\nTags while blueshelled: {blue_tags} times\nTagged by a bluesheller: {bad_tags} times'
+                if len(time_tag) >= 1:
+                    plt.hist(time_tag, bins=range(min(time_tag), max(time_tag)+1,1), color='orange')
+                    plt.xlabel('Hour of day')
+                    plt.ylabel('Number of interactions (tagged or was tagged)')
+                    plt.savefig('graph.png')
+
+                    await ctx.send(f'Statistics for {name}:\n-\n{stat_msg}', file=discord.File('graph.png'))
+                else:
+                    await ctx.send(f'Statistics for {name}:\n-\n{stat_msg}\n-\nDo something interesting and you\'ll get a plot')
             else:
                 await ctx.send(f'{name} doesn\'t appear to be playing. ')
-        except:
-            await ctx.send('You need to name a person to get stats. Usage: \'$stats\' @<name>')
 
 
     @commands.command(name='help')
@@ -280,6 +405,8 @@ class AssassinCog(commands.Cog):
         player_role = ctx.guild.get_role(self._config.playerrole)
         player_id = self._config.playerrole
         pause_role = ctx.guild.get_role(self._config.pauserole)
+        channel = ctx.guild.get_channel(self._config.channel)
+        control_channel = ctx.guild.get_channel(self._config.controlchan)
         if ctx.message.author.id not in self._config.debug_allow:
             await ctx.send('You can\'t use that command. Have you tried being someone else?')
         elif not args:
@@ -300,11 +427,11 @@ class AssassinCog(commands.Cog):
             for member in player_role.members:
                 # Add each of these players to the game
                 name = str(member.display_name)
-                points = 1 + random.random()*.001
+                points = 1 - random.random()*.001
                 self.gamestate.players[name] = model.Player(discID=member.id, name=name, points=points)
                 await member.remove_roles(blue_role)
-            await ctx.channel.send(START_MESSAGE + f'\n\n<@&{player_id}> I have added you to the game. You can leave by unselecting the <@&{player_id}> role at any time. New players can join the game by selecting the <@&{player_id}> role at any time.\n\nBasic Commands:\n* \'$points <@Player1> tagged <@Player2> with <@Player3> ... <@PlayerN>\' | Report tags to me as soon as possible\n* \'$scores\' | Ask me to print an updated scoreboard\n* \'$help\' | Get a more complete list of commands\n\nImmediately below this message is a pinned scoreboard message (or use \'$scores\', but that\'s kinda annoying).\n\nRules Summary:\n1. If you are mounted on a unicycle and the game is active, you can tag any player who is **not** mounted on a unicycle.\n2. The player in first place is *blueshelled* and can be tagged even if they are on a unicycle.\n3. If the game gets too boring, I will *blueshell* more players until a tag happens.\n4. You can only tag the same person once every 30 minutes.\n5. When you are tagged, you must count to 10 before you can tag back.\n6. I will activate the game once per week, and for 30-minute intervals throughout the week. Tags can only happen while the game is active, and points are transferred **immediately**.\n\nMore rules can be found [here](https://github.com/CPUnicycle/AssassinScheduleSystem) along with source code and more details.')
-            scorebrd = await ctx.channel.send(self.get_leaderboard() + '---\n' + self.get_weekly_leaderboard())
+            await ctx.channel.send(START_MESSAGE + f'\n\n<@&{player_id}> I have added you to the game. You can leave by unselecting the <@&{player_id}> role at any time. New players can join the game by selecting the <@&{player_id}> role at any time.\n\nBasic Commands:\n* \'$points <@Player1> tagged <@Player2> with <@Player3> ... <@PlayerN>\' | Report tags to me as soon as possible\n* \'$scores\' | Ask me to print an updated scoreboard\n* \'$help\' | Get a more complete list of commands\n\nImmediately below this message is a pinned scoreboard message (or use \'$scores\', but that\'s kinda annoying).\n\nRules Summary:\n1. If you are mounted on a unicycle and the game is active, you can tag any player who is **not** mounted on a unicycle.\n2. The player in first place is *blueshelled* and can be tagged even if they are on a unicycle.\n3. If the game gets too boring, I will *blueshell* more players until a tag happens.\n4. You can only tag the same person once every 30 minutes.\n5. When you are tagged, you must count to 10 before you can tag back.\n6. I will activate the game once per week, and for 30-minute intervals throughout the week. Tags can only happen while the game is active, and points are transferred **immediately**.\n\nMore rules can be found on [github.com](https://github.com/CPUnicycle/AssassinScheduleSystem) along with source code and more details.')
+            scorebrd = await control_channel.send(self.get_leaderboard() + '---\n' + self.get_weekly_leaderboard())
             await scorebrd.pin()
             self.gamestate.score_msg = scorebrd.id
         elif args[0].lower() == 'add_points':
@@ -322,7 +449,7 @@ class AssassinCog(commands.Cog):
             else:
                 self.gamestate.players[name].points += num_pts
                 await ctx.send(f'{args[1]} has received {args[2]} points. They now have {self.gamestate.players[name].points} points')
-                scores = await ctx.channel.fetch_message(self.gamestate.score_msg)
+                scores = await control_channel.fetch_message(self.gamestate.score_msg)
                 await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
         elif args[0].lower() == 'set_points':
             # Add args[2] points to player args[1]
@@ -339,7 +466,7 @@ class AssassinCog(commands.Cog):
             else:
                 self.gamestate.players[name].points = num_pts
                 await ctx.send(f'{args[1]} now has {self.gamestate.players[name].points} points')
-                scores = await ctx.channel.fetch_message(self.gamestate.score_msg)
+                scores = await control_channel.fetch_message(self.gamestate.score_msg)
                 await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
         elif args[0].lower() == 'reset_game':
             if datetime.datetime.now().isoweekday()%7 >= 5:
@@ -357,12 +484,12 @@ class AssassinCog(commands.Cog):
             for member in player_role.members:
                 # Add each of these players to the game
                 name = str(member.display_name)
-                points = 1 + random.random()*.001
+                points = 1 - random.random()*.001
                 self.gamestate.players[name] = model.Player(discID=member.id, name=name, points=points)
                 await ctx.send(f'<@{member.id}> has joined the game as {name}')
 
             await ctx.send(START_MESSAGE)
-            scores = await ctx.channel.fetch_message(self.gamestate.score_msg)
+            scores = await control_channel.fetch_message(self.gamestate.score_msg)
             await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
             self.gamestate.game_over = False
         elif args[0].lower() == 'randomize_day':
@@ -434,7 +561,7 @@ class AssassinCog(commands.Cog):
             else:
                 self.gamestate.players[name].week_points = num_pts
                 await ctx.send(f'{args[1]} now has {self.gamestate.players[name].week_points} points')
-                scores = await ctx.channel.fetch_message(self.gamestate.score_msg)
+                scores = await control_channel.fetch_message(self.gamestate.score_msg)
                 await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
         elif args[0].lower() == 'add_weekly_points':
             # Add args[2] points to player args[1]
@@ -451,7 +578,7 @@ class AssassinCog(commands.Cog):
             else:
                 self.gamestate.players[name].week_points += num_pts
                 await ctx.send(f'{args[1]} now has {self.gamestate.players[name].week_points} points')
-                scores = await ctx.channel.fetch_message(self.gamestate.score_msg)
+                scores = await control_channel.fetch_message(self.gamestate.score_msg)
                 await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
         elif args[0].lower() == 'clear_stats':
             try:
@@ -461,9 +588,9 @@ class AssassinCog(commands.Cog):
             except:
                 name = 'not_player'
             if len(args) < 2 or name == 'not_player':
-                await ctx.send('Usage: \'$unpause <person>')
+                await ctx.send('Usage: \'$debug clear_stats <person>')
             elif name in self.gamestate.players:
-                self.gamestate.players[name].stat_list = []
+                self.gamestate.players[name].stat_list = ''
                 await ctx.send(f'{name}\'s statistics have been reset')
             else:
                 await ctx.send(f'{name} is not playing right now, so their stats can\'t be cleared')
@@ -475,6 +602,7 @@ class AssassinCog(commands.Cog):
     @tasks.loop(time=datetime.time(0, tzinfo=TIMEZONE))
     async def midnight_update(self):
         channel = self.bot.get_channel(self._config.channel)
+        control_channel = self.bot.get_channel(self._config.controlchan)
         player_id = self._config.playerrole
         player_role = channel.guild.get_role(player_id)
         blue_role = channel.guild.get_role(self._config.bluerole)
@@ -506,7 +634,7 @@ class AssassinCog(commands.Cog):
                 prev_pts = self.gamestate.players[name].points
                 rank += 1
 
-            scores = await channel.fetch_message(self.gamestate.score_msg)
+            scores = await control_channel.fetch_message(self.gamestate.score_msg)
             await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
             await channel.send("For those who participated this week, you have been rewarded.")
 
@@ -530,11 +658,11 @@ class AssassinCog(commands.Cog):
             for member in player_role.members:
                 # Add each of these players to the game
                 name = str(member.display_name)
-                points = 1 + random.random()*.001
+                points = 1 - random.random()*.001
                 self.gamestate.players[name] = model.Player(discID=member.id, name=name, points=points)
                 await member.remove_roles(blue_role)
-            await channel.send(START_MESSAGE + f'\n\n<@&{player_id}> I have added you to the game. You can leave by unselecting the <@&{player_id}> role at any time. New players can join the game by selecting the <@&{player_id}> role at any time.\n\nBasic Commands:\n* \'$points <@Player1> tagged <@Player2> with <@Player3> ... <@PlayerN>\' | Report tags to me as soon as possible\n* \'$scores\' | Ask me to print an updated scoreboard\n* \'$help\' | Get a more complete list of commands\n\nImmediately below this message is a pinned scoreboard message (or use \'$scores\', but that\'s kinda annoying).\n\nRules Summary:\n1. If you are mounted on a unicycle and the game is active, you can tag any player who is **not** mounted on a unicycle.\n2. The player in first place is *blueshelled* and can be tagged even if they are on a unicycle.\n3. If the game gets too boring, I will *blueshell* more players until a tag happens.\n4. You can only tag the same person once every 30 minutes.\n5. When you are tagged, you must count to 10 before you can tag back.\n6. I will activate the game once per week, and for 30-minute intervals throughout the week. Tags can only happen while the game is active, and points are transferred **immediately**.\n\nMore rules can be found [here](https://github.com/CPUnicycle/AssassinScheduleSystem) along with source code and more details.')
-            scorebrd = await channel.send(self.get_leaderboard() + '---\n' + self.get_weekly_leaderboard())
+            await channel.send(START_MESSAGE + f'\n\n<@&{player_id}> I have added you to the game. You can leave by unselecting the <@&{player_id}> role at any time. New players can join the game by selecting the <@&{player_id}> role at any time.\n\nBasic Commands:\n* \'$points <@Player1> tagged <@Player2> with <@Player3> ... <@PlayerN>\' | Report tags to me as soon as possible\n* \'$scores\' | Ask me to print an updated scoreboard\n* \'$help\' | Get a more complete list of commands\n\nImmediately below this message is a pinned scoreboard message (or use \'$scores\', but that\'s kinda annoying).\n\nRules Summary:\n1. If you are mounted on a unicycle and the game is active, you can tag any player who is **not** mounted on a unicycle.\n2. The player in first place is *blueshelled* and can be tagged even if they are on a unicycle.\n3. If the game gets too boring, I will *blueshell* more players until a tag happens.\n4. You can only tag the same person once every 30 minutes.\n5. When you are tagged, you must count to 10 before you can tag back.\n6. I will activate the game once per week, and for 30-minute intervals throughout the week. Tags can only happen while the game is active, and points are transferred **immediately**.\n\nMore rules can be found on [github.com](https://github.com/CPUnicycle/AssassinScheduleSystem) along with source code and more details.')
+            scorebrd = await control_channel.send(self.get_leaderboard() + '---\n' + self.get_weekly_leaderboard())
             await scorebrd.pin()
             self.gamestate.score_msg = scorebrd.id
 
@@ -603,7 +731,7 @@ class AssassinCog(commands.Cog):
             ((x - 14) / 5.6), 2))) / (5.6 * np.sqrt(2 * np.pi)))
             # Was *1 for 2023 = 2/hour, now it's 20/hour
             rand_value = 1 * random.random() * 10
-            print(f'Rolling for half hour. Got: {rand_value}\nNeeded: {time_probability} or lower')
+
             if (rand_value < time_probability or do_round):
                 max_player = max(self.gamestate.players.values(), key=lambda player: player.points)
                 logging.info('Starting assassin half hour.')
@@ -615,6 +743,7 @@ class AssassinCog(commands.Cog):
     @tasks.loop(seconds=60)
     async def game_clock(self):
         channel = self.bot.get_channel(self._config.channel)
+        control_channel = self.bot.get_channel(self._config.controlchan)
         blue_role = channel.guild.get_role(self._config.bluerole)
         if (self.gamestate.thirty_game_active or self.gamestate.day_game_active) and \
                 (not self.gamestate.game_over):
@@ -644,12 +773,12 @@ class AssassinCog(commands.Cog):
                             init_pts = self.gamestate.players[player].points
                             drained_pts = (init_pts-max_pts)*np.e**(-.01) + max_pts
                             self.gamestate.players[player].points = min(drained_pts, init_pts)
-                    scores = await channel.fetch_message(self.gamestate.score_msg)
+                    scores = await control_channel.fetch_message(self.gamestate.score_msg)
                     await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
     
                     # roll die every minute, with an expected wait time of 30m
                     move_shell_die = random.random()
-                    print(f'Rolling for move blueshell: {move_shell_die}\nNeeded: {0.01667} or lower')
+                    print(f'rolling for move blueshell: {move_shell_die}')
                     if move_shell_die < .01667 * 1:
                         shelled = self.move_blueshell()
                         for person in shelled:
@@ -681,6 +810,7 @@ class AssassinCog(commands.Cog):
             return
         
         logging.info('State saved.')
+        print(not self.gamestate.game_over)
 
         with open(self._config.save_path + 'state.pickle', 'wb') as pickle_file:
             pickle.dump(self.gamestate, pickle_file)
@@ -694,7 +824,7 @@ class AssassinCog(commands.Cog):
         name_points.sort(key=lambda row: row[1], reverse=True)
         message = "Leaderboard:\n"
         for person in name_points:
-            message += f"`{person[0].upper() : <10} | {person[1]:>10.2f}`\n"
+            message += f"`{person[0].upper() : <15} | {person[1]:>10.2f}`\n"
         return message
 
 
@@ -703,7 +833,7 @@ class AssassinCog(commands.Cog):
         name_points.sort(key=lambda row: row[1], reverse=True)
         message = "Weekly Leaderboard:\n"
         for person in name_points:
-            message += f"`{person[0].upper() : <10} | {person[1]:>10.2f}`\n"
+            message += f"`{person[0].upper() : <15} | {person[1]:>10.2f}`\n"
         return message
     
     
@@ -780,6 +910,26 @@ class AssassinCog(commands.Cog):
                 self.gamestate.players[person[0]].blueshelled = False
                 safe.append(self.gamestate.players[person[0]])
         return safe
+
+    # OH MY GOD AFTER 3 HOURS OF WORK I REMEMBERED THAT TUPLES EXIST. Thanks Sean!
+    def read_stats(self, stat_str):
+        stats = stat_str.split('Statistic')
+        statlist = []
+        for stat in stats:
+            if len(str(stat)) >= 1:
+                tagger = re.findall('tagger=(.*), person=', stat)[0].__contains__('True')
+                person = re.findall('person=(.*), verb=', stat)[0]
+                verb = re.findall('verb=(.*), point_i=', stat)[0]
+                point_i = float(re.findall('point_i=(.*), point_f=', stat)[0])
+                point_f = float(re.findall('point_f=(.*), blueshelled=', stat)[0])
+                blueshelled = re.findall('blueshelled=(.*), on_blueshell=', stat)[0].__contains__('True')
+                on_blueshell = re.findall('on_blueshell=(.*), date=datetime.datetime\(', stat)[0].__contains__('True')
+                time = re.findall('date=datetime.datetime\((.*)\)\)', stat)[0]
+                date = datetime.datetime.strptime(time, '%Y, %m, %d, %H, %M, %S, %f')
+                statlist.append(model.Statistic(
+                    tagger, person, verb, point_i, point_f, blueshelled, on_blueshell, date)
+                    )
+        return statlist
 
 
 async def register(bot: commands.Bot, config: model.AssassinConfig):

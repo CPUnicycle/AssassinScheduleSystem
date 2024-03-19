@@ -23,12 +23,24 @@ class CaseInsensitiveDict(Mapping):
 
     def pop(self, k):
         self._d.pop(k.lower())
-    
+
     def __repr__(self):
         return repr(self._d)
     
     def __str__(self):
         return str(self._d)
+
+
+@dataclass
+class Statistic:
+    tagger: bool = False
+    person: str = ''
+    verb: str = ''
+    point_i: int = 0
+    point_f: int = 0
+    blueshelled: bool = False
+    on_blueshell: bool = False
+    date: str = ''
 
 
 @dataclass
@@ -39,7 +51,7 @@ class Player:
     week_points: int = 0
     paused: bool = False
     blueshelled: bool = False
-    stat_list = []
+    stat_list: str = ''
     # and have a way to track stats
     # Maybe a list with data on every tag that occurs
     #   blueshell means was the blueshell active on the player who was tagged
@@ -66,6 +78,7 @@ class AssassinConfig:
     save_path: str
     debug_allow: set[int]
     channel: int
+    controlchan: int
     operator: str = ''
     bluerole: int = 0
     playerrole: int = 0
@@ -83,15 +96,4 @@ class GameState:
     game_over: bool = False
     score_msg: int = 0
     game_activated: bool = False
-
-
-@dataclass
-class Statistic:
-    tagger: bool = False
-    person: str = ''
-    verb: str = ''
-    blueshelled: bool = False
-    on_blueshell: bool = False
-    date: str = ''
-
 
