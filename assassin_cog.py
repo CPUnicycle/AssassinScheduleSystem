@@ -84,15 +84,20 @@ class AssassinCog(commands.Cog):
         blue_role = before.guild.get_role(self._config.bluerole)
         pause_role = before.guild.get_role(self._config.pauserole)
         name = after.display_name
-
+        
+        # When someone changes display name - updates their Player() object, and scoreboard
         if (str(before.display_name) != str(after.display_name)) and \
                 (str(before.display_name) in self.gamestate.players):
             self.gamestate.players[name] = model.Player(discID=after.id, name=name, points=self.gamestate.players[before.display_name].points)
             self.gamestate.players.pop(before.display_name)
+        # When a blueshell role is taken by a non-player
         if blue_role in after.roles and player_role not in after.roles:
             await after.remove_roles(blue_role)
+        # When a pause role is taken by a non-player
         if pause_role in after.roles and player_role not in after.roles:
             await after.remove_roles(pause_role)
+        # Make a recon channel for everyone that joins as a player.
+        #   Visible to only players, and not the person that just joined
         if player_role not in before.roles and player_role in after.roles:
             shared_with = {
                 channel.guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -103,11 +108,12 @@ class AssassinCog(commands.Cog):
             points = 1 - random.random()*.001
             self.gamestate.players[name] = model.Player(discID=after.id, name=name, points=points)
             await channel.send(f'<@{before.id}> has joined the game as {name}')
-
+        # If a player leaves - remove blueshell and pauses
         elif player_role in before.roles and player_role not in after.roles:
             await before.remove_roles(blue_role)
             await before.remove_roles(pause_role)
             self.gamestate.players.pop(before.display_name)
+        # if a player changes their blueshell state
         elif (blue_role in after.roles) != (blue_role in before.roles):
             if (blue_role in after.roles) != self.gamestate.players[name].blueshelled:
                 cheater = await before.guild.fetch_member(before.id)
@@ -117,9 +123,11 @@ class AssassinCog(commands.Cog):
                 else:
                     await cheater.remove_roles(blue_role)
                     await channel.send(f'<@{before.id}> tried to *give* themself a blueshell for some reason. Weirdo.')
+        # When players pause
         elif (pause_role in after.roles) and (pause_role not in before.roles):
             self.gamestate.players[name].paused = (pause_role in after.roles)
             await channel.send(f'Paused <@{after.id}> until midnight. This cannot be undone.')
+        # If someone tries to unpause
         elif (pause_role not in after.roles) and (pause_role in before.roles):
             if self.gamestate.players[name].paused:
                 cheater = await after.guild.fetch_member(after.id)
@@ -127,6 +135,7 @@ class AssassinCog(commands.Cog):
                 await channel.send(f'<@{after.id}> tried to unpause themself early! You\'re a lazy cheater.>')
         else:
             pass
+        # update scoreboard on any of these changes
         scores = await control_channel.fetch_message(self.gamestate.score_msg)
         await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
 
@@ -143,6 +152,7 @@ class AssassinCog(commands.Cog):
         channel = self.bot.get_channel(self._config.channel)
         control_channel = self.bot.get_channel(self._config.controlchan)
         blue_role = ctx.guild.get_role(self._config.bluerole)
+        # Due to cursed statistics implementations - some verbs must be banned
         if verb.__contains__('Statistic') or \
                 verb.__contains__('tagger=') or \
                 verb.__contains__('person=') or \
@@ -154,6 +164,7 @@ class AssassinCog(commands.Cog):
                 verb.__contains__('date=datetime.datetime'):
             await ctx.send('Nope. Can\'t use that word here. Re-enter points.')
             await ctx.send('Forgive me python gods for I have sinned.\n-AJ')
+            # These return statements are structural. Break out of points()
             return
         if name1 not in self.gamestate.players or self.gamestate.players[name1].paused:
             await ctx.send(f'{tag1} isn\'t playing at the moment. Shouldn\'t that be you? How did that happen?')
@@ -210,6 +221,9 @@ class AssassinCog(commands.Cog):
             # Reset game clock to 0
             self.gamestate.tag_clock = 0
             # update player data
+            # Appends string form of Statistic() to player.stat_list.
+            #   A future developer could implement this with tuples and that should work
+            #       Lists won't though. Immutable data types only in Player() objects
             self.gamestate.players[name1].stat_list += str(model.Statistic(
                 True,
                 name2,
@@ -259,12 +273,12 @@ class AssassinCog(commands.Cog):
                 saved = await ctx.guild.fetch_member(disc_id)
                 await saved.remove_roles(blue_role)
 
-
+    # report scores, could be deleted if not used in 2024 game
     @commands.command(name='scores')
     async def scores(self, ctx):
         await ctx.send(self.get_leaderboard() + '---\n' + self.get_weekly_leaderboard()) 
 
-
+    # reports statistics on either the whole game, or a specific player
     @commands.command(name='stats')
     async def stats(self, ctx, tag=None):
         # omg aj <- A reminder of how bad this ~~used to be~~ is
@@ -275,6 +289,7 @@ class AssassinCog(commands.Cog):
             much_blueshell_dic = {}
             many_tags_dic = {}
             blueshell_hunter_dic = {}
+            jesse_num_dic = {}
             for player in self.gamestate.players:
                 times = []
                 points = []
@@ -283,6 +298,8 @@ class AssassinCog(commands.Cog):
                 much_blueshell_dic.update({player: 0})
                 many_tags_dic.update({player: 0})
                 blueshell_hunter_dic.update({player: 0})
+                jesse_num_dic.update({player: 0})
+                num_tags = 0.0001
                 for stat in self.read_stats(self.gamestate.players[player].stat_list):
                     if stat.point_i - stat.point_f > loser_dic[player]:
                         loser_dic[player] = stat.point_i - stat.point_f
@@ -292,12 +309,14 @@ class AssassinCog(commands.Cog):
                         much_blueshell_dic[player] += 1
                     if stat.tagger:
                         many_tags_dic[player] += 1
+                        jesse_num_dic[player] += stat.point_f - stat.point_i
+                        num_tags += 1
                     if stat.tagger and stat.on_blueshell:
                         blueshell_hunter_dic[player] += 1
-                        
-                        
                     times.append(matplotlib.dates.date2num(stat.date))
                     points.append(stat.point_f)
+                for person in jesse_num_dic:
+                    jesse_num_dic[person] = jesse_num_dic[person] / num_tags
                 times.append(matplotlib.dates.date2num(datetime.datetime.now()))
                 points.append(self.gamestate.players[player].points)
                 times.insert(0, matplotlib.dates.date2num(GAME_START))
@@ -314,7 +333,8 @@ class AssassinCog(commands.Cog):
             much_blueshell = max(much_blueshell_dic, key=much_blueshell_dic.get)
             many_tags = max(many_tags_dic, key=many_tags_dic.get)
             blueshell_hunter = max(blueshell_hunter_dic, key=blueshell_hunter_dic.get)
-            stats_msg = f'The person who lost the most points in one go is {loser}, losing {lost_pts:.2f} points to {gainer}, who gained {gain_pts:.2f} points.\nThe person who got hit while blueshelled the most times is {much_blueshell} ({much_blueshell_dic[much_blueshell]} times).\nThe person who tagged the most people is {many_tags} ({many_tags_dic[many_tags]} tags).\nThe person who tagged the most blueshelled players is {blueshell_hunter} ({blueshell_hunter_dic[blueshell_hunter]} tags)'
+            jesse_stat = max(jesse_num_dic, key=jesse_num_dic.get)
+            stats_msg = f'The person who lost the most points in one go is {loser}, losing {lost_pts:.2f} points to {gainer}, who gained {gain_pts:.2f} points.\nThe person with the hightest Jesse statistic is {jesse_stat} with {jesse_num_dic[jesse_stat]} points/tag.\nThe person who got hit while blueshelled the most times is {much_blueshell} ({much_blueshell_dic[much_blueshell]} times).\nThe person who tagged the most people is {many_tags} ({many_tags_dic[many_tags]} tags).\nThe person who tagged the most blueshelled players is {blueshell_hunter} ({blueshell_hunter_dic[blueshell_hunter]} tags)'
             await ctx.send(stats_msg, file=discord.File('graph.png'))
         else:
             disc_id = ''.join(filter(str.isdigit, tag))
@@ -491,7 +511,7 @@ class AssassinCog(commands.Cog):
             await ctx.send(START_MESSAGE)
             scores = await control_channel.fetch_message(self.gamestate.score_msg)
             await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
-            self.gamestate.game_over = False
+            self.gamestate.game_over = True
         elif args[0].lower() == 'randomize_day':
             if datetime.datetime.now().isoweekday()%7 >= 5:
                 chosen_day = random.choice(range(1, 6))
@@ -771,12 +791,12 @@ class AssassinCog(commands.Cog):
                     for player in self.gamestate.players:
                         if self.gamestate.players[player].blueshelled:
                             init_pts = self.gamestate.players[player].points
-                            drained_pts = (init_pts-max_pts)*np.e**(-.01) + max_pts
+                            drained_pts = (init_pts-max_pts)*np.e**(-.005) + max_pts
                             self.gamestate.players[player].points = min(drained_pts, init_pts)
                     scores = await control_channel.fetch_message(self.gamestate.score_msg)
                     await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
     
-                    # roll die every minute, with an expected wait time of 30m
+                    # roll die every minute, with an expected wait time of 60m
                     move_shell_die = random.random()
                     print(f'rolling for move blueshell: {move_shell_die}')
                     if move_shell_die < .01667 * 1:
