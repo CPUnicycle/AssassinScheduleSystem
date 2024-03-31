@@ -83,7 +83,7 @@ class AssassinCog(commands.Cog):
         player_role = before.guild.get_role(self._config.playerrole)
         blue_role = before.guild.get_role(self._config.bluerole)
         pause_role = before.guild.get_role(self._config.pauserole)
-        name = after.display_name
+        name = str(after.display_name)
         
         # When someone changes display name - updates their Player() object, and scoreboard
         if (str(before.display_name) != str(after.display_name)) and \
@@ -308,11 +308,13 @@ class AssassinCog(commands.Cog):
                     if stat.on_blueshell and not stat.tagger:
                         much_blueshell_dic[player] += 1
                     if stat.tagger:
+                        num_tags += 1.0
                         many_tags_dic[player] += 1
                         jesse_num_dic[player] += stat.point_f - stat.point_i
-                        num_tags += 1
                     if stat.tagger and stat.on_blueshell:
                         blueshell_hunter_dic[player] += 1
+                    times.append(matplotlib.dates.date2num(stat.date))
+                    points.append(stat.point_i)
                     times.append(matplotlib.dates.date2num(stat.date))
                     points.append(stat.point_f)
                 for person in jesse_num_dic:
@@ -326,6 +328,7 @@ class AssassinCog(commands.Cog):
             plt.ylabel('points')
             plt.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
             plt.savefig('graph.png', bbox_inches='tight')
+            plt.close()
             loser = max(loser_dic, key=loser_dic.get)
             gainer = max(gainer_dic, key=gainer_dic.get)
             lost_pts = loser_dic[loser]
@@ -334,7 +337,7 @@ class AssassinCog(commands.Cog):
             many_tags = max(many_tags_dic, key=many_tags_dic.get)
             blueshell_hunter = max(blueshell_hunter_dic, key=blueshell_hunter_dic.get)
             jesse_stat = max(jesse_num_dic, key=jesse_num_dic.get)
-            stats_msg = f'The person who lost the most points in one go is {loser}, losing {lost_pts:.2f} points to {gainer}, who gained {gain_pts:.2f} points.\nThe person with the hightest Jesse statistic is {jesse_stat} with {jesse_num_dic[jesse_stat]} points/tag.\nThe person who got hit while blueshelled the most times is {much_blueshell} ({much_blueshell_dic[much_blueshell]} times).\nThe person who tagged the most people is {many_tags} ({many_tags_dic[many_tags]} tags).\nThe person who tagged the most blueshelled players is {blueshell_hunter} ({blueshell_hunter_dic[blueshell_hunter]} tags)'
+            stats_msg = f'The person who lost the most points in one go is {loser}, losing {lost_pts:.2f} points to {gainer}, who gained {gain_pts:.2f} points.\nThe person who got hit while blueshelled the most times is {much_blueshell} ({much_blueshell_dic[much_blueshell]} times).\nThe person who tagged the most people is {many_tags} ({many_tags_dic[many_tags]} tags).\nThe person who tagged the most blueshelled players is {blueshell_hunter} ({blueshell_hunter_dic[blueshell_hunter]} tags)'
             await ctx.send(stats_msg, file=discord.File('graph.png'))
         else:
             disc_id = ''.join(filter(str.isdigit, tag))
@@ -398,11 +401,15 @@ class AssassinCog(commands.Cog):
                     best_antagonist = 'Nobody, yet...'
                 stat_msg = f'Tagged by {best_antagonist} the most\nMost common victim: {best_victim}\nTagged others: {num_tags} times\nGot tagged: {num_tagged} times\nJesse Stat: {jesse_stat:.2f} (avg pts/tag)\nTagged a bluesheller: {on_blue_tags} times\nGot blueshelled: {blueshell_count} times\nTags while blueshelled: {blue_tags} times\nTagged by a bluesheller: {bad_tags} times'
                 if len(time_tag) >= 1:
-                    plt.hist(time_tag, bins=range(min(time_tag), max(time_tag)+1,1), color='orange')
+                    if max(time_tag) == min(time_tag):
+                        plt.hist(time_tag, bins=range(7, 21), color='orange')
+                    else:
+                        plt.hist(time_tag, bins=range(min(time_tag), max(time_tag)+1,1), color='orange')
+
                     plt.xlabel('Hour of day')
                     plt.ylabel('Number of interactions (tagged or was tagged)')
                     plt.savefig('graph.png')
-
+                    plt.close()
                     await ctx.send(f'Statistics for {name}:\n-\n{stat_msg}', file=discord.File('graph.png'))
                 else:
                     await ctx.send(f'Statistics for {name}:\n-\n{stat_msg}\n-\nDo something interesting and you\'ll get a plot')
@@ -523,7 +530,7 @@ class AssassinCog(commands.Cog):
             try:
                 player_id = ''.join(filter(str.isdigit, args[1]))
                 mem = await ctx.guild.fetch_member(player_id)
-                name = mem.display_name
+                name = str(mem.display_name)
             except:
                 name = 'not_player'
             if len(args) < 2 or name == 'not_player':
@@ -540,7 +547,7 @@ class AssassinCog(commands.Cog):
             try:
                 player_id = ''.join(filter(str.isdigit, args[1]))
                 mem = await ctx.guild.fetch_member(player_id)
-                name = mem.display_name
+                name = str(mem.display_name)
             except:
                 name = 'not_player'
             if len(args) < 2 or name == 'not_player':
@@ -555,7 +562,7 @@ class AssassinCog(commands.Cog):
             try:
                 player_id = ''.join(filter(str.isdigit, args[1]))
                 mem = await ctx.guild.fetch_member(player_id)
-                name = mem.display_name
+                name = str(mem.display_name)
             except:
                 name = 'not_player'
             if len(args) < 2 or name == 'not_player':
@@ -572,7 +579,7 @@ class AssassinCog(commands.Cog):
                 num_pts = float(args[2])
                 player_id = ''.join(filter(str.isdigit, args[1]))
                 mem = await ctx.guild.fetch_member(player_id)
-                name = mem.display_name
+                name = str(mem.display_name)
             except:
                 num_pts = str(args[2])
                 name = 'not_player'
@@ -589,7 +596,7 @@ class AssassinCog(commands.Cog):
                 num_pts = float(args[2])
                 player_id = ''.join(filter(str.isdigit, args[1]))
                 mem = await ctx.guild.fetch_member(player_id)
-                name = mem.display_name
+                name = str(mem.display_name)
             except:
                 num_pts = str(args[2])
                 name = 'not_player'
@@ -604,7 +611,7 @@ class AssassinCog(commands.Cog):
             try:
                 player_id = ''.join(filter(str.isdigit, args[1]))
                 mem = await ctx.guild.fetch_member(player_id)
-                name = mem.display_name
+                name = str(mem.display_name)
             except:
                 name = 'not_player'
             if len(args) < 2 or name == 'not_player':
@@ -690,10 +697,29 @@ class AssassinCog(commands.Cog):
     @tasks.loop(time=datetime.time(5, 45, tzinfo=TIMEZONE))
     async def endgame_update(self):
         channel = self.bot.get_channel(self._config.channel)
+        control_channel = self.bot.get_channel(self._config.controlchan)
         player_role = channel.guild.get_role(self._config.playerrole)
         blue_role = channel.guild.get_role(self._config.bluerole)
         if (datetime.datetime.now().month == GAME_END.month) and (datetime.datetime.now().day == GAME_END.day):
             # Send end message and scoreboard.
+            name_points = [(player.name, player.points) for player in self.gamestate.players.values()]
+            name_points.sort(key=lambda row: row[1], reverse=True)
+            rank = 1
+            prev_pts = None
+            prev_rank = None
+            for nam_pts in name_points:
+                name = nam_pts[0]
+                if self.gamestate.players[name].points == prev_pts:
+                    self.gamestate.players[name].week_points += len(name_points) - prev_rank
+                else:
+                    self.gamestate.players[name].week_points += len(name_points) - rank
+                prev_rank = rank
+                prev_pts = self.gamestate.players[name].points
+                rank += 1
+
+            scores = await control_channel.fetch_message(self.gamestate.score_msg)
+            await scores.edit(content=f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}')
+
             name_list = self.get_first_places()
             self.gamestate.day_game_active = False
             self.gamestate.thirty_game_active = False
@@ -706,7 +732,7 @@ class AssassinCog(commands.Cog):
             else:
                 name_id = self.gamestate.players[name_list[0]].discID
                 await channel.send(f'I\'m proud to announce that the {datetime.datetime.now().year} S.L.U.T.Q.U.A.C.K is <@{name_id}>')
-            await channel.send(f'This concludes Uni Assassin {datetime.datetime.now().year}! Here are the final scores:\n\n' + self.get_leaderboard() + f'\n\nI have removed all <@&{self._config.bluerole}> and <@&{self._config.playerrole}> roles. Thanks for playing everyone, and I\'ll be back next year...')
+            await channel.send(f'This concludes Uni Assassin {datetime.datetime.now().year}! Here are the final scores:\n\n' + f'{self.get_leaderboard()}---\n{self.get_weekly_leaderboard()}' + f'\n\nI have removed all <@&{self._config.bluerole}> and <@&{self._config.playerrole}> roles. Thanks for playing everyone, and I\'ll be back next year...')
             for member in blue_role.members:
                 self.gamestate.players[str(member)].blueshelled = False
                 await member.remove_roles(blue_role)
