@@ -214,7 +214,7 @@ class AssassinCog(commands.Cog):
                 points_calc = 0.2
             else: 
                 points_calc = 1
-        self.gamestate.players[name1].points += points_calc
+        self.gamestate.players[name1].points += 1*points_calc
         self.gamestate.players[name2].points = max(0, self.gamestate.players[name2].points - (1+max(pts2-pts1,0)*0.125))
         if points_calc != 0:
             # Things to do if points were actually scored
@@ -653,7 +653,7 @@ class AssassinCog(commands.Cog):
             prev_rank = None
             for nam_pts in name_points:
                 name = nam_pts[0]
-                if self.gamestate.players[name].points == prev_pts:
+                if abs(self.gamestate.players[name].points - prev_pts) < .002:
                     self.gamestate.players[name].week_points += len(name_points) - prev_rank
                 else:
                     self.gamestate.players[name].week_points += len(name_points) - rank
@@ -770,7 +770,7 @@ class AssassinCog(commands.Cog):
             (not self.gamestate.thirty_game_active) and \
             (not self.gamestate.day_game_active) and \
             (current_time.isoweekday() in range(1, 6)) and not \
-            (current_time.isoweekday() == 3 and current_time.hour in range(18, 21)):
+            (current_time.isoweekday() == 3 and current_time.hour in range(17, 21)):
 
             x = current_time.hour + ((current_time.minute // 30) / 2)
             time_probability = 0.50 * ((pow(np.e, -0.5 * pow(
