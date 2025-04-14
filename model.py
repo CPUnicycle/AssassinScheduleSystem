@@ -38,8 +38,6 @@ class Statistic:
     verb: str = ''
     point_i: int = 0
     point_f: int = 0
-    blueshelled: bool = False
-    on_blueshell: bool = False
     date: str = ''
 
 
@@ -50,8 +48,7 @@ class Player:
     points: int = 1
     week_points: int = 0
     paused: bool = False
-    blueshelled: bool = False
-    stat_list: str = ''
+    stat_list: tuple = ()
     # and have a way to track stats
     # Maybe a list with data on every tag that occurs
     #   blueshell means was the blueshell active on the player who was tagged
@@ -80,20 +77,26 @@ class AssassinConfig:
     channel: int
     controlchan: int
     operator: str = ''
-    bluerole: int = 0
     playerrole: int = 0
-    pauserole: int = 0
 
 
 @dataclass
 class GameState:
     players: CaseInsensitiveDict[str, Player]
     assassin_day: int
-    day_game_active: bool = False
-    thirty_game_active: bool = False
-    tag_clock: int = 0
-    thirty_game_clock: int = 0
+    wait_clock: int = 0
+    game_clock: int = 0
     game_over: bool = False
     score_msg: int = 0
-    game_activated: bool = False
+    round_msg: int = 0
+    game_waiting: bool = False
+    game_active: bool = False
+    players_running: tuple = ()
+    runner: int = 0
+    today_selected: bool = False
+    # [8:55, 9:55, 10:55, 11:55, 12:55, 13:55, 14:55, 15:55, 16:55, 17:55]
+    time_probabilities: tuple = (0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.4, 0.4, 0.3, 0.2)
+    times_selected: tuple = ()
+    temp_times_selected: tuple = ()
+
 

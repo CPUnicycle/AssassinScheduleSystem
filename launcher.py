@@ -12,6 +12,7 @@ def launch(config: configparser.ConfigParser):
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
+    intents.reactions = True
 
     game_config = model.AssassinConfig(
         save_path = config['DEFAULT']['SavePath'],
@@ -19,9 +20,7 @@ def launch(config: configparser.ConfigParser):
         channel = int(config['DEFAULT']['AssassinChannel']),
         controlchan = int(config['DEFAULT']['ControlChannel']),
         operator = int(config['DEFAULT']['Operator']),
-        bluerole = int(config['DEFAULT']['BlueShellID']),
-        playerrole = int(config['DEFAULT']['PlayerID']),
-        pauserole = int(config['DEFAULT']['PauseID'])
+        playerrole = int(config['DEFAULT']['PlayerID'])
     )
 
     bot = commands.Bot(command_prefix='$', intents=intents, case_insensitive=True)
